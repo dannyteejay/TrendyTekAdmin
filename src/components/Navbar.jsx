@@ -90,16 +90,24 @@ const Navbar = ({ setToken, token, currency, setCurrency }) => {
   return (
     <div className="flex items-center py-2.5 px-[4%] justify-between bg-white border-b border-gray-200">
       {/* Brand Logo */}
-      <div className="flex items-center gap-2.5">
-        <img
-          className="object-contain h-9 sm:h-11 md:h-12 w-auto max-w-[180px] sm:max-w-[240px] md:max-w-[280px]"
-          src={logo || assets.logo}
-          alt="Admin Logo"
-        />
-        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-black text-white rounded">
-          Admin
-        </span>
-      </div>
+<div className="flex items-center gap-2.5">
+  {logo ? (
+    <img
+      className="object-contain h-9 sm:h-11 md:h-12 w-auto max-w-[180px] sm:max-w-[240px] md:max-w-[280px]"
+      src={logo}
+      alt="Admin Logo"
+    />
+  ) : (
+    <div className="flex items-center gap-1 select-none py-1">
+      <span className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 uppercase font-sans">
+        TRENDY<span className="text-blue-600">TEK</span>
+      </span>
+    </div>
+  )}
+  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-black text-white rounded">
+    Admin
+  </span>
+</div>
 
       {/* Right Controls */}
       <div className="flex items-center gap-3">
