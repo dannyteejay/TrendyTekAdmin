@@ -1,19 +1,17 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { backendUrl, currency as defaultCurrency } from "../App";
+import { backendUrl, currency } from "../App";
 import { toast } from "react-toastify";
 import { assets } from "../assets/assets";
 
-const Orders = ({ token, currency: propCurrency }) => {
+const Orders = ({ token }) => {
   const [orders, setOrders] = useState([]);
-
-  // Use dynamic currency from Admin Navbar, fallback to default '$'
-  const activeCurrency = propCurrency || defaultCurrency || "$";
+  const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState("all");
 
   const fetchAllOrders = async () => {
-    if (!token) {
-      return null;
-    }
+    if (!token) return;
+    setLoading(true);
 
     try {
       const response = await axios.post(
@@ -29,27 +27,55 @@ const Orders = ({ token, currency: propCurrency }) => {
       }
     } catch (error) {
       console.error(error);
-      toast.error(error.response?.data?.message || error.message);
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Update Delivery Status
   const statusHandler = async (event, orderId) => {
     try {
+      const newStatus = event.target.value;
       const response = await axios.post(
         backendUrl + "/api/order/status",
-        { orderId, status: event.target.value },
+        { orderId, status: newStatus },
         { headers: { token } }
       );
-
       if (response.data.success) {
-        toast.success(response.data.message || "Status updated");
-        await fetchAllOrders();
+        toast.success(`Order delivery status updated to "${newStatus}"`);
+        fetchAllOrders();
       } else {
         toast.error(response.data.message);
       }
     } catch (error) {
-      console.error(error);
-      toast.error(error.response?.data?.message || error.message);
+      console.log(error);
+      toast.error(error.message || "Failed to update status");
+    }
+  };
+
+  // Toggle Payment Status (Paid / Pending)
+  const togglePaymentHandler = async (orderId, currentPayment) => {
+    try {
+      const nextPayment = !currentPayment;
+      const response = await axios.post(
+        backendUrl + "/api/order/payment-status",
+        { orderId, payment: nextPayment },
+        { headers: { token } }
+      );
+      if (response.data.success) {
+        toast.success(
+          nextPayment
+            ? "✅ Payment marked as PAID / CONFIRMED!"
+            : "⏳ Payment marked as PENDING"
+        );
+        fetchAllOrders();
+      } else {
+        toast.error(response.data.message);
+      }
+    } catch (error) {
+      console.log(error);
+      toast.error(error.message || "Failed to update payment status");
     }
   };
 
@@ -57,116 +83,183 @@ const Orders = ({ token, currency: propCurrency }) => {
     fetchAllOrders();
   }, [token]);
 
+  const filteredOrders = orders.filter((order) => {
+    if (filter === "paid") return order.payment === true;
+    if (filter === "pending") return order.payment === false;
+    if (filter === "bank") return order.paymentMethod === "Bank Transfer";
+    return true;
+  });
+
   return (
-    <div>
-      <h3 className="mb-4 text-xl font-semibold">Order Management</h3>
-      <div>
-        {orders.length === 0 ? (
-          <p className="py-8 text-center text-gray-500">No orders found.</p>
-        ) : (
-          orders.map((order, index) => (
+    <div className="flex flex-col gap-6 pb-16">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-white border border-gray-200 rounded-2xl shadow-xs">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <span>📦</span> Order Management & Payment Tracking
+          </h2>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
+            Track customer orders, verify bank transfers, and update delivery statuses.
+          </p>
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center gap-2">
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs sm:text-sm font-semibold text-gray-800 outline-none cursor-pointer"
+          >
+            <option value="all">All Orders ({orders.length})</option>
+            <option value="paid">Paid & Transferred (🟢)</option>
+            <option value="pending">Pending Payment (🟡)</option>
+            <option value="bank">Bank Transfers (🏛️)</option>
+          </select>
+
+          <button
+            onClick={fetchAllOrders}
+            className="px-3.5 py-2 text-xs sm:text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl transition-colors cursor-pointer"
+          >
+            🔄 Refresh
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="py-20 text-center text-gray-500 animate-pulse bg-white rounded-2xl border">
+          <div className="w-8 h-8 border-3 border-black border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+          Loading orders...
+        </div>
+      ) : filteredOrders.length === 0 ? (
+        <div className="p-12 text-center bg-white border border-gray-200 rounded-2xl text-gray-400">
+          <p className="text-4xl mb-2">📭</p>
+          <p className="font-semibold text-gray-600">No orders match this filter.</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {filteredOrders.map((order, index) => (
             <div
-              className="grid grid-cols-1 sm:grid-cols-[0.5fr_2fr_1fr] lg:grid-cols-[0.5fr_2fr_1fr_1fr_1fr] gap-3 items-start border-2 border-gray-200 p-5 md:p-8 my-3 md:my-4 text-xs sm:text-sm text-gray-700 bg-white rounded-lg shadow-sm"
               key={index}
+              className="p-5 md:p-6 bg-white border border-gray-200 rounded-2xl shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-6 hover:border-gray-300 transition-all"
             >
-              <img
-                className="w-12 mx-auto sm:mx-0"
-                src={assets.parcel_icon}
-                alt="Parcel Icon"
-              />
-
-              {/* Order Items & Customer Details */}
-              <div>
-                <div className="font-medium text-gray-900">
-                  {order.items.map((item, itemIdx) => {
-                    const isLast = itemIdx === order.items.length - 1;
-                    const showSize =
-                      item.size &&
-                      item.size !== "Default" &&
-                      item.size !== "";
-
-                    return (
-                      <p className="py-0.5" key={itemIdx}>
-                        {item.name} × {item.quantity}
-                        {showSize && (
-                          <span className="px-1.5 py-0.5 ml-1 text-xs bg-gray-100 border rounded font-semibold text-gray-700">
-                            {item.size}
-                          </span>
-                        )}
-                        {!isLast && ","}
+              {/* Col 1: Parcel Icon + Items List */}
+              <div className="flex items-start gap-4 lg:w-[35%]">
+                <img
+                  className="w-12 h-12 p-2 bg-gray-50 border border-gray-200 rounded-xl shrink-0"
+                  src={assets.parcel_icon}
+                  alt="Parcel Icon"
+                />
+                <div className="flex flex-col gap-1">
+                  <div className="space-y-1">
+                    {order.items.map((item, itemIndex) => (
+                      <p
+                        className="text-xs sm:text-sm font-semibold text-gray-900"
+                        key={itemIndex}
+                      >
+                        {item.name} <span className="text-gray-500">x {item.quantity}</span>{" "}
+                        <span className="px-1.5 py-0.5 text-[10px] bg-gray-100 border border-gray-200 rounded text-gray-700 font-bold ml-1">
+                          {item.size}
+                        </span>
                       </p>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
 
-                <p className="mt-3 mb-1 font-semibold text-gray-800">
-                  {order.address?.firstName || ""} {order.address?.lastName || ""}
-                </p>
-
-                <div className="text-gray-500">
-                  <p>{order.address?.street ? order.address.street + "," : ""}</p>
-                  <p>
-                    {[
-                      order.address?.city,
-                      order.address?.state,
-                      order.address?.country,
-                      order.address?.zipcode,
-                    ]
-                      .filter(Boolean)
-                      .join(", ")}
+                  <p className="text-xs font-bold text-gray-900 mt-2">
+                    👤 {order.address.firstName} {order.address.lastName}
+                  </p>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    📍 {order.address.street}, {order.address.city}, {order.address.state},{" "}
+                    {order.address.country}
+                  </p>
+                  <p className="text-xs text-blue-600 font-medium">
+                    📞 {order.address.phone}
                   </p>
                 </div>
-                <p className="mt-1 text-gray-600 font-medium">
-                  📞 {order.address?.phone || "N/A"}
+              </div>
+
+              {/* Col 2: Method & Amount */}
+              <div className="flex flex-col gap-2 text-xs sm:text-sm lg:w-[25%] border-t lg:border-t-0 lg:border-l lg:pl-6 border-gray-100 pt-3 lg:pt-0">
+                <p className="text-gray-500">
+                  Total Items: <b className="text-gray-900">{order.items.length}</b>
+                </p>
+                <p className="text-gray-500 flex items-center gap-1.5">
+                  Method: <b className="text-gray-900">{order.paymentMethod}</b>
+                </p>
+                <p className="text-xs text-gray-400">
+                  📅 {new Date(order.date).toLocaleDateString()} at{" "}
+                  {new Date(order.date).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+                <p className="text-base sm:text-lg font-black text-gray-900 mt-1">
+                  {currency}
+                  {Number(order.amount).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </p>
               </div>
 
-              {/* Order Metadata */}
-              <div>
-                <p className="text-sm sm:text-[15px] font-medium">
-                  Total Items: {order.items.length}
-                </p>
-                <p className="mt-2">
-                  <span className="font-medium">Method:</span>{" "}
-                  {order.paymentMethod}
-                </p>
-                <p>
-                  <span className="font-medium">Payment:</span>{" "}
-                  <span
-                    className={`font-semibold ${
-                      order.payment ? "text-green-600" : "text-amber-600"
-                    }`}
-                  >
-                    {order.payment ? "Done" : "Pending"}
+              {/* Col 3: Payment Status Badge & One-Click Toggle */}
+              <div className="flex flex-col gap-2 lg:w-[20%] border-t lg:border-t-0 lg:border-l lg:pl-6 border-gray-100 pt-3 lg:pt-0">
+                <span className="text-xs font-bold text-gray-500">
+                  Payment Status:
+                </span>
+
+                {order.payment ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-800 font-extrabold text-xs rounded-full w-fit">
+                    <span className="w-2 h-2 rounded-full bg-green-600"></span>
+                    PAID / CONFIRMED
                   </span>
-                </p>
-                <p className="mt-1 text-gray-500">
-                  Date: {new Date(order.date).toLocaleDateString()}
-                </p>
+                ) : order.paymentMethod === "COD" ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 text-blue-800 font-bold text-xs rounded-full w-fit">
+                    💵 CASH ON DELIVERY
+                  </span>
+                ) : order.paymentMethod === "Bank Transfer" ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-800 font-bold text-xs rounded-full w-fit animate-pulse">
+                    ⏳ Awaiting Transfer
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-700 font-bold text-xs rounded-full w-fit">
+                    ⚪ Unpaid / Pending
+                  </span>
+                )}
+
+                {/* Toggle Button: Mark Paid / Unpaid */}
+                <button
+                  onClick={() => togglePaymentHandler(order._id, order.payment)}
+                  className={`mt-1 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                    order.payment
+                      ? "bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100"
+                      : "bg-green-600 border-green-600 text-white hover:bg-green-700 shadow-xs active:scale-95"
+                  }`}
+                >
+                  {order.payment ? "↩️ Mark as Unpaid" : "✅ Mark as Paid"}
+                </button>
               </div>
 
-              {/* Accurate Formatted Price */}
-              <p className="text-base sm:text-lg font-bold text-gray-900">
-                {activeCurrency}
-                {Number(order.amount).toLocaleString()}
-              </p>
-
-              {/* Status Selector */}
-              <select
-                onChange={(event) => statusHandler(event, order._id)}
-                value={order.status}
-                className="p-2 text-xs sm:text-sm font-semibold border border-gray-300 rounded bg-gray-50 cursor-pointer focus:outline-none focus:ring-1 focus:ring-black"
-              >
-                <option value="Order Placed">Order Placed</option>
-                <option value="Packing">Packing</option>
-                <option value="Shipped">Shipped</option>
-                <option value="Out for delivery">Out for delivery</option>
-                <option value="Delivered">Delivered</option>
-              </select>
+              {/* Col 4: Delivery Status Dropdown */}
+              <div className="flex flex-col gap-2 lg:w-[20%] border-t lg:border-t-0 lg:border-l lg:pl-6 border-gray-100 pt-3 lg:pt-0">
+                <span className="text-xs font-bold text-gray-500">
+                  Delivery Progress:
+                </span>
+                <select
+                  onChange={(event) => statusHandler(event, order._id)}
+                  value={order.status}
+                  className="w-full p-2.5 font-bold text-xs sm:text-sm text-gray-900 bg-white border border-gray-300 rounded-xl outline-none focus:border-black cursor-pointer shadow-2xs"
+                >
+                  <option value="Order Placed">📦 Order Placed</option>
+                  <option value="Packing">🎁 Packing</option>
+                  <option value="Shipped">🚚 Shipped</option>
+                  <option value="Out for delivery">🛵 Out for delivery</option>
+                  <option value="Delivered">🎉 Delivered</option>
+                </select>
+              </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
