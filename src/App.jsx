@@ -11,6 +11,7 @@ import ManageLogo from "./pages/ManageLogo";
 import ManageFooter from "./pages/ManageFooter";
 import ManageBank from "./pages/ManageBank";
 import ManagePayments from "./pages/ManagePayments";
+import ManageShipping from "./pages/ManageShipping";
 import ManageAbout from "./pages/ManageAbout";
 import ManageContact from "./pages/ManageContact";
 import ManageBlog from "./pages/ManageBlog";
@@ -73,6 +74,7 @@ const App = () => {
                 <Route path="/logo" element={<ManageLogo token={token} />} />
                 <Route path="/bank-details" element={<ManageBank token={token} />} />
                 <Route path="/payments" element={<ManagePayments token={token} />} />
+                <Route path="/shipping" element={<ManageShipping token={token} currency={currency} />} />
                 <Route path="/blog" element={<ManageBlog token={token} />} />
                 <Route path="/faq" element={<ManageFaq token={token} />} />
                 <Route path="/footer" element={<ManageFooter token={token} />} />

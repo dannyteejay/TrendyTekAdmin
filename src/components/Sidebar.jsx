@@ -124,6 +124,14 @@ const Sidebar = () => {
         <img className="w-5 h-5" src={assets.order_icon} alt="Analytics Icon" />
         <p className="hidden font-medium md:block">Sales Analytics</p>
       </NavLink>
+      {/* Shipping Fee Management */}
+      <NavLink
+        className="flex items-center gap-3 px-3 py-2 border border-r-0 border-gray-300 rounded-l hover:bg-gray-100"
+        to="/shipping"
+>
+        <span className="text-lg">🚚</span>
+        <p className="hidden font-medium md:block">Shipping Fee</p>
+      </NavLink>
       <NavLink
         className="flex items-center gap-3 border border-gray-300 dark:border-slate-800 border-r-0 px-3 py-2 rounded-l-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
         to="/payments"
