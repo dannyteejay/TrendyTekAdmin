@@ -139,6 +139,10 @@ const Sidebar = () => {
         <span className="text-lg">💳</span>
         <p className="hidden md:block font-medium">Payment Gateways</p>
       </NavLink>
+      <NavLink to="/audit-logs" className="flex items-center gap-3 border border-gray-300 border-r-0 px-3 py-2 rounded-l">
+         <span className="text-lg">🛡️</span>
+         <p className="hidden md:block">Audit Trail</p>
+      </NavLink>
       </div>
     </div>
   );

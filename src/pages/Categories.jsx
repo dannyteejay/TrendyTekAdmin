@@ -2,10 +2,15 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { backendUrl } from "../App";
 import { toast } from "react-toastify";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 const Categories = ({ token }) => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Destructive Action Modal State
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [isDeletingCategory, setIsDeletingCategory] = useState(false);
 
   // Form State
   const [name, setName] = useState("");
@@ -136,26 +141,22 @@ const Categories = ({ token }) => {
     }
   };
 
-  // 5. Delete category
-  const deleteCategory = async (id, catName) => {
-    if (
-      !window.confirm(
-        `Are you sure you want to delete the "${catName}" category?`
-      )
-    ) {
-      return;
-    }
+  // 5. Perform Category Deletion after Confirmation Dialog
+  const handleConfirmDeleteCategory = async () => {
+    if (!categoryToDelete) return;
 
     try {
+      setIsDeletingCategory(true);
       const response = await axios.post(
         backendUrl + "/api/category/remove",
-        { id },
+        { id: categoryToDelete._id },
         { headers: { token: adminToken } }
       );
 
       if (response.data.success) {
-        toast.info(response.data.message);
-        if (editId === id) resetForm();
+        toast.info(response.data.message || `Category "${categoryToDelete.name}" deleted.`);
+        if (editId === categoryToDelete._id) resetForm();
+        setCategoryToDelete(null);
         await fetchCategories();
       } else {
         toast.error(response.data.message);
@@ -163,6 +164,8 @@ const Categories = ({ token }) => {
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.message || error.message);
+    } finally {
+      setIsDeletingCategory(false);
     }
   };
 
@@ -181,7 +184,7 @@ const Categories = ({ token }) => {
             <button
               type="button"
               onClick={resetForm}
-              className="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
+              className="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 cursor-pointer"
             >
               Cancel Edit
             </button>
@@ -225,7 +228,7 @@ const Categories = ({ token }) => {
             <button
               type="button"
               onClick={addSubCategoryTag}
-              className="px-4 py-2 text-xs font-bold text-white bg-gray-800 rounded-lg hover:bg-black"
+              className="px-4 py-2 text-xs font-bold text-white bg-gray-800 rounded-lg hover:bg-black cursor-pointer"
             >
               Add
             </button>
@@ -242,7 +245,7 @@ const Categories = ({ token }) => {
                   <button
                     type="button"
                     onClick={() => removeSubCategoryTag(idx)}
-                    className="w-3.5 h-3.5 text-gray-400 hover:text-red-600 font-bold leading-3 text-center"
+                    className="w-3.5 h-3.5 text-gray-400 hover:text-red-600 font-bold leading-3 text-center cursor-pointer"
                   >
                     ×
                   </button>
@@ -272,7 +275,7 @@ const Categories = ({ token }) => {
         <button
           type="submit"
           disabled={loading}
-          className="px-8 py-2.5 mt-2 text-sm font-bold text-white bg-black rounded-lg hover:bg-gray-800 active:scale-95 transition-all shadow-md"
+          className="px-8 py-2.5 mt-2 text-sm font-bold text-white bg-black rounded-lg hover:bg-gray-800 active:scale-95 transition-all shadow-md cursor-pointer"
         >
           {loading
             ? "Saving..."
@@ -336,13 +339,14 @@ const Categories = ({ token }) => {
                 <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200">
                   <button
                     onClick={() => startEdit(cat)}
-                    className="px-3 py-1 text-xs font-semibold text-gray-700 transition-colors bg-white border border-gray-300 rounded hover:bg-gray-100"
+                    className="px-3 py-1 text-xs font-semibold text-gray-700 transition-colors bg-white border border-gray-300 rounded hover:bg-gray-100 cursor-pointer"
                   >
                     ✏️ Edit
                   </button>
+                  {/* Triggers confirmation dialog */}
                   <button
-                    onClick={() => deleteCategory(cat._id, cat.name)}
-                    className="px-3 py-1 text-xs font-semibold text-white transition-colors bg-red-500 rounded hover:bg-red-600"
+                    onClick={() => setCategoryToDelete(cat)}
+                    className="px-3 py-1 text-xs font-semibold text-white transition-colors bg-red-500 rounded hover:bg-red-600 cursor-pointer active:scale-95"
                   >
                     🗑️ Delete
                   </button>
@@ -352,6 +356,19 @@ const Categories = ({ token }) => {
           </div>
         )}
       </div>
+
+      {/* 🛡️ Destructive Action Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(categoryToDelete)}
+        onClose={() => setCategoryToDelete(null)}
+        onConfirm={handleConfirmDeleteCategory}
+        isLoading={isDeletingCategory}
+        title="Are you sure?"
+        message="This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDestructive={true}
+      />
     </div>
   );
 };

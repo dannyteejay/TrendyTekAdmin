@@ -3,6 +3,7 @@ import axios from "axios";
 import { backendUrl as AppBackendUrl } from "../App";
 import { toast } from "react-toastify";
 import { assets } from "../assets/assets";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 const BLOG_CATEGORIES = [
   "Tech & Gadgets",
@@ -26,6 +27,10 @@ const ManageBlog = ({ token }) => {
   const [loadingList, setLoadingList] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Destructive Action Modal State
+  const [blogToDelete, setBlogToDelete] = useState(null);
+  const [isDeletingBlog, setIsDeletingBlog] = useState(false);
 
   // Create Form State
   const [title, setTitle] = useState("");
@@ -164,7 +169,6 @@ const ManageBlog = ({ token }) => {
 
       if (response.data.success) {
         toast.success(response.data.message || "Blog published!");
-        // Reset form
         setTitle("");
         setCategory("Tech & Gadgets");
         setCustomCategory("");
@@ -249,21 +253,21 @@ const ManageBlog = ({ token }) => {
     }
   };
 
-  // 4. Delete Blog
-  const handleDeleteBlog = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this blog post?")) {
-      return;
-    }
+  // 4. Perform Delete Blog Action after Confirmation
+  const handleConfirmDeleteBlog = async () => {
+    if (!blogToDelete) return;
 
     try {
+      setIsDeletingBlog(true);
       const response = await axios.post(
         backendUrl + "/api/blog/remove",
-        { id },
+        { id: blogToDelete._id },
         { headers: { token: adminToken } }
       );
 
       if (response.data.success) {
-        toast.info(response.data.message || "Blog post deleted");
+        toast.info(response.data.message || `Blog post "${blogToDelete.title}" deleted.`);
+        setBlogToDelete(null);
         await fetchBlogs();
       } else {
         toast.error(response.data.message);
@@ -271,6 +275,8 @@ const ManageBlog = ({ token }) => {
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.message || error.message);
+    } finally {
+      setIsDeletingBlog(false);
     }
   };
 
@@ -436,8 +442,9 @@ const ManageBlog = ({ token }) => {
                     >
                       Edit
                     </button>
+                    {/* Triggers confirmation dialog */}
                     <button
-                      onClick={() => handleDeleteBlog(item._id)}
+                      onClick={() => setBlogToDelete(item)}
                       className="px-3.5 py-1.5 text-xs font-bold text-white bg-red-500 rounded-lg hover:bg-red-600 active:scale-95 transition-all cursor-pointer shadow-xs"
                     >
                       Delete
@@ -690,7 +697,7 @@ const ManageBlog = ({ token }) => {
             <button
               type="button"
               onClick={() => setActiveTab("list")}
-              className="px-5 py-2.5 text-xs sm:text-sm font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              className="px-5 py-2.5 text-xs sm:text-sm font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
             >
               Cancel
             </button>
@@ -903,7 +910,7 @@ const ManageBlog = ({ token }) => {
                 <button
                   type="submit"
                   disabled={editSubmitting}
-                  className="px-6 py-2 text-xs sm:text-sm font-bold text-white bg-black rounded-lg hover:bg-gray-800 active:scale-95 transition-all shadow-xs"
+                  className="px-6 py-2 text-xs sm:text-sm font-bold text-white bg-black rounded-lg hover:bg-gray-800 active:scale-95 transition-all shadow-xs cursor-pointer"
                 >
                   {editSubmitting ? "Saving Changes..." : "Save Changes"}
                 </button>
@@ -912,6 +919,19 @@ const ManageBlog = ({ token }) => {
           </div>
         </div>
       )}
+
+      {/* 🛡️ Destructive Action Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(blogToDelete)}
+        onClose={() => setBlogToDelete(null)}
+        onConfirm={handleConfirmDeleteBlog}
+        isLoading={isDeletingBlog}
+        title="Are you sure?"
+        message="This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDestructive={true}
+      />
     </div>
   );
 };

@@ -1,101 +1,240 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { backendUrl, currency as defaultCurrency } from "../App";
 import { toast } from "react-toastify";
+import { backendUrl, currency } from "../App";
+import {
+  DataTable,
+  SearchBar,
+  ConfirmDialog,
+  StatCard,
+} from "../components/common";
 
-const List = ({ token, currency: propCurrency }) => {
-  const [listProducts, setListProducts] = useState([]);
+const List = ({ token }) => {
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [deleteProductInfo, setDeleteProductInfo] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // Use the dynamic currency from Admin Navbar, fallback to exported currency or '$'
-  const activeCurrency = propCurrency || defaultCurrency || "$";
-
-  const fetchListProducts = async () => {
+  // 1. Fetch Product Catalog
+  const fetchList = async () => {
     try {
-      const response = await axios.get(backendUrl + "/api/product/list");
-
+      setLoading(true);
+      const response = await axios.get(`${backendUrl}/api/product/list`);
       if (response.data.success) {
-        setListProducts(response.data.products);
+        setList(response.data.products.reverse());
       } else {
         toast.error(response.data.message);
       }
     } catch (error) {
       console.error(error);
-      toast.error(error.response?.data?.message || error.message);
+      toast.error(error.message || "Failed to load product list.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const removeProduct = async (id) => {
+  // 2. Remove Product with Server-Side RBAC Enforcement
+  const handleDeleteProduct = async () => {
+    if (!deleteProductInfo) return;
     try {
+      setIsDeleting(true);
       const response = await axios.post(
-        backendUrl + "/api/product/remove",
-        { id },
+        `${backendUrl}/api/product/remove`,
+        { id: deleteProductInfo._id },
         { headers: { token } }
       );
 
       if (response.data.success) {
-        toast.info(response.data.message);
-        await fetchListProducts();
+        toast.success(`"${deleteProductInfo.name}" removed successfully.`);
+        setDeleteProductInfo(null);
+        await fetchList();
       } else {
         toast.error(response.data.message);
       }
     } catch (error) {
       console.error(error);
-      toast.error(error.response?.data?.message || error.message);
+      const msg =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to delete product.";
+      toast.error(msg);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   useEffect(() => {
-    fetchListProducts();
+    fetchList();
   }, []);
 
-  return (
-    <>
-      <div className="flex flex-col gap-2">
-        <p className="mb-2 text-lg font-semibold">All Products List</p>
+  // Filter products by search query
+  const filteredProducts = list.filter((item) => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      item.name.toLowerCase().includes(q) ||
+      (item.category && item.category.toLowerCase().includes(q)) ||
+      (item.subCategory && item.subCategory.toLowerCase().includes(q))
+    );
+  });
 
-        {/* List Table Title */}
-        <div className="hidden md:grid grid-cols-[0.5fr_1fr_1.5fr_0.5fr_0.5fr_0.5fr_0.2fr] items-center py-1 px-2 border bg-gray-200 text-sm font-semibold text-center">
-          <b>Image</b>
-          <b className="text-left">Name</b>
-          <b className="text-left">Description</b>
-          <b>Category</b>
-          <b>Sub Category</b>
-          <b>Price</b>
-          <b className="text-center">Action</b>
+  // Calculate Catalog KPI Metrics
+  const totalItemsCount = list.length;
+  const uniqueCategories = new Set(list.map((p) => p.category).filter(Boolean))
+    .size;
+  const averagePrice =
+    totalItemsCount > 0
+      ? (
+          list.reduce((acc, p) => acc + (Number(p.price) || 0), 0) /
+          totalItemsCount
+        ).toFixed(2)
+      : "0.00";
+
+  // Define Table Columns
+  const columns = [
+    {
+      header: "Image",
+      render: (row) => (
+        <img
+          className="w-12 h-12 object-cover rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800"
+          src={Array.isArray(row.image) && row.image.length > 0 ? row.image[0] : row.image}
+          alt={row.name}
+        />
+      ),
+    },
+    {
+      header: "Product Name",
+      accessor: "name",
+      render: (row) => (
+        <div>
+          <p className="font-bold text-gray-900 dark:text-gray-100">{row.name}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">ID: #{row._id.slice(-6)}</p>
         </div>
-
-        {/* Display Products */}
-        {listProducts.map((item, index) => (
-          <div
-            className="grid grid-cols-[0.5fr_1fr_1.5fr_0.5fr_0.5fr_0.5fr_0.2fr] md:grid-cols-[0.5fr_1fr_1.5fr_0.5fr_0.5fr_0.5fr_0.2fr] items-center gap-2 py-1 px-2 border text-sm text-center"
-            key={index}
+      ),
+    },
+    {
+      header: "Category",
+      accessor: "category",
+      render: (row) => (
+        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+          {row.category || "Uncategorized"}
+        </span>
+      ),
+    },
+    {
+      header: "Price",
+      render: (row) => (
+        <span className="font-extrabold text-gray-900 dark:text-white">
+          {currency}{row.price}
+        </span>
+      ),
+    },
+    {
+      header: "Sizes / Stock",
+      render: (row) => (
+        <div className="flex gap-1 flex-wrap">
+          {Array.isArray(row.sizes) && row.sizes.length > 0
+            ? row.sizes.map((s) => (
+                <span
+                  key={s}
+                  className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300"
+                >
+                  {s}
+                </span>
+              ))
+            : "—"}
+        </div>
+      ),
+    },
+    {
+      header: "Action",
+      className: "text-right",
+      render: (row) => (
+        <div className="text-right">
+          <button
+            onClick={() => setDeleteProductInfo(row)}
+            className="px-3 py-1.5 text-xs font-bold text-red-600 hover:text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
           >
-            <img
-              className="object-cover w-12 h-12 mx-auto rounded"
-              src={item.image && item.image[0] ? item.image[0] : ""}
-              alt={item.name}
-            />
-            <p className="font-medium text-left line-clamp-1">{item.name}</p>
-            <p className="text-xs text-left text-gray-500 line-clamp-2">
-              {item.description}
-            </p>
-            <p>{item.category}</p>
-            <p>{item.subCategory}</p>
-            <p className="font-semibold">
-              {activeCurrency}
-              {item.price}
-            </p>
-            <p
-              onClick={() => removeProduct(item._id)}
-              className="w-6 h-6 mx-auto font-bold leading-6 text-center text-white bg-red-500 rounded-full cursor-pointer hover:bg-red-600 active:scale-95"
-              title="Delete product"
-            >
-              X
-            </p>
-          </div>
-        ))}
+            Delete
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* 1. Header & Title */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+          Product Catalog
+        </h2>
+        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Manage, search, and monitor active store inventory.
+        </p>
       </div>
-    </>
+
+      {/* 2. Top Metric Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatCard
+          title="Total Products"
+          value={totalItemsCount.toString()}
+          subtitle="Active items in store"
+          color="blue"
+          icon="🛍️"
+        />
+        <StatCard
+          title="Categories"
+          value={uniqueCategories.toString()}
+          subtitle="Taxonomy groups"
+          color="purple"
+          icon="📂"
+        />
+        <StatCard
+          title="Average Item Price"
+          value={`${currency}${averagePrice}`}
+          subtitle="Catalog-wide pricing"
+          color="green"
+          icon="🏷️"
+        />
+      </div>
+
+      {/* 3. Search Bar Controls */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+        <SearchBar
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Search by name, category, or type..."
+        />
+        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium self-end sm:self-center">
+          Showing <span className="font-bold text-gray-900 dark:text-white">{filteredProducts.length}</span> of {totalItemsCount} products
+        </p>
+      </div>
+
+      {/* 4. Modular Data Table */}
+      <DataTable
+        columns={columns}
+        data={filteredProducts}
+        isLoading={loading}
+        emptyTitle="No products match your search"
+        emptyDescription="Try clearing your search query or add a new product from the sidebar."
+        emptyIcon="🔍"
+      />
+
+      {/* 5. Destructive Action Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(deleteProductInfo)}
+        onClose={() => setDeleteProductInfo(null)}
+        onConfirm={handleDeleteProduct}
+        isLoading={isDeleting}
+        title="Are you sure?"
+        message="This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDestructive={true}
+      />
+    </div>
   );
 };
 

@@ -18,6 +18,7 @@ import ManageBlog from "./pages/ManageBlog";
 import ManageFaq from "./pages/ManageFaq";
 import Login from "./components/Login";
 import ManageUsers from "./pages/ManageUsers";
+import AuditLogs from "./pages/AuditLogs";
 import Dashboard from "./pages/Dashboard";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -79,6 +80,7 @@ const App = () => {
                 <Route path="/faq" element={<ManageFaq token={token} />} />
                 <Route path="/footer" element={<ManageFooter token={token} />} />
                 <Route path="/users" element={<ManageUsers token={token} />} />
+                <Route path="/audit-logs" element={<AuditLogs token={token} />} />
                 <Route path="/about-page" element={<ManageAbout token={token} />} />
                 <Route path="/" element={<Dashboard token={token} currency={currency} />} />
                 <Route path="/dashboard" element={<Dashboard token={token} currency={currency} />} />

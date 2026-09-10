@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import { backendUrl as AppBackendUrl } from "../App";
 import { toast } from "react-toastify";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 const ManageUsers = ({ token }) => {
   const adminToken = token || localStorage.getItem("adminToken") || localStorage.getItem("token") || "";
@@ -16,6 +17,10 @@ const ManageUsers = ({ token }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
+
+  // Destructive Action Confirmation State
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -154,8 +159,8 @@ const ManageUsers = ({ token }) => {
           name: editName.trim(),
           email: editEmail.trim(),
           phone: editPhone.trim(),
-          role: editRole,
-          status: editStatus,
+          role,
+          status,
           password: editPassword.trim() || undefined,
         },
         { headers: { token: adminToken } }
@@ -177,13 +182,6 @@ const ManageUsers = ({ token }) => {
   };
 
   const handleToggleStatus = async (user) => {
-    const isCurrentlyBlocked = user.status === "blocked";
-    const confirmMsg = isCurrentlyBlocked
-      ? `Unblock "${user.name}"? They will regain access to log in.`
-      : `Block/Suspend "${user.name}"? They will be prevented from logging in.`;
-
-    if (!window.confirm(confirmMsg)) return;
-
     try {
       const response = await axios.post(
         backendUrl + "/api/user/admin/toggle-status",
@@ -203,24 +201,21 @@ const ManageUsers = ({ token }) => {
     }
   };
 
-  const handleDeleteUser = async (user) => {
-    if (
-      !window.confirm(
-        `⚠️ Permanently delete user "${user.name}" (${user.email})?\nThis action cannot be undone.`
-      )
-    ) {
-      return;
-    }
+  // Perform permanent user deletion after confirmation
+  const handleConfirmDeleteUser = async () => {
+    if (!userToDelete) return;
 
     try {
+      setIsDeletingUser(true);
       const response = await axios.post(
         backendUrl + "/api/user/admin/delete",
-        { id: user._id },
+        { id: userToDelete._id },
         { headers: { token: adminToken } }
       );
 
       if (response.data.success) {
-        toast.info(response.data.message || "User removed");
+        toast.info(response.data.message || `User "${userToDelete.name}" removed`);
+        setUserToDelete(null);
         await fetchUsers();
       } else {
         toast.error(response.data.message);
@@ -228,6 +223,8 @@ const ManageUsers = ({ token }) => {
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.message || error.message);
+    } finally {
+      setIsDeletingUser(false);
     }
   };
 
@@ -429,9 +426,10 @@ const ManageUsers = ({ token }) => {
                         Edit
                       </button>
 
+                      {/* Triggers confirmation dialog */}
                       <button
-                        onClick={() => handleDeleteUser(u)}
-                        className="px-3.5 py-1.5 text-xs font-bold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors cursor-pointer shadow-xs"
+                        onClick={() => setUserToDelete(u)}
+                        className="px-3.5 py-1.5 text-xs font-bold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors cursor-pointer shadow-xs active:scale-95"
                       >
                         Delete
                       </button>
@@ -680,7 +678,7 @@ const ManageUsers = ({ token }) => {
                 <button
                   type="submit"
                   disabled={savingEdit}
-                  className="px-6 py-2 text-xs sm:text-sm font-bold text-white bg-black rounded-lg hover:bg-gray-800 active:scale-95 transition-all shadow-xs"
+                  className="px-6 py-2 text-xs sm:text-sm font-bold text-white bg-black rounded-lg hover:bg-gray-800 active:scale-95 transition-all shadow-xs cursor-pointer"
                 >
                   {savingEdit ? "Saving..." : "Save Changes"}
                 </button>
@@ -689,6 +687,19 @@ const ManageUsers = ({ token }) => {
           </div>
         </div>
       )}
+
+      {/* 🛡️ Destructive Action Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(userToDelete)}
+        onClose={() => setUserToDelete(null)}
+        onConfirm={handleConfirmDeleteUser}
+        isLoading={isDeletingUser}
+        title="Are you sure?"
+        message="This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDestructive={true}
+      />
     </div>
   );
 };
