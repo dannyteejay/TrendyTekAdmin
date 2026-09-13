@@ -10,15 +10,15 @@ const Orders = ({ token, currency: propCurrency }) => {
   const [filter, setFilter] = useState("all");
   const [copiedNoteId, setCopiedNoteId] = useState(null);
 
-  // ⚡ Dynamic Currency State - Auto-synced with Database & Navbar
+  // ⚡ Dynamic Currency State: Defaults to "₦" immediately, then syncs with database & navbar
   const [activeCurrency, setActiveCurrency] = useState(
-    propCurrency ||
-      localStorage.getItem("adminCurrency") ||
+    localStorage.getItem("adminCurrency") ||
+      propCurrency ||
       defaultCurrency ||
-      "$"
+      "₦"
   );
 
-  // Fetch active store currency directly from database on load
+  // Auto-fetch active store currency directly from database on load
   useEffect(() => {
     const fetchActiveCurrency = async () => {
       try {
@@ -33,10 +33,13 @@ const Orders = ({ token, currency: propCurrency }) => {
       }
     };
 
+    fetchActiveCurrency();
+  }, []);
+
+  // Sync if propCurrency changes from parent
+  useEffect(() => {
     if (propCurrency) {
       setActiveCurrency(propCurrency);
-    } else {
-      fetchActiveCurrency();
     }
   }, [propCurrency]);
 
@@ -253,7 +256,7 @@ const Orders = ({ token, currency: propCurrency }) => {
                         minute: "2-digit",
                       })}
                     </p>
-                    {/* Active Currency Display */}
+                    {/* Dynamic Active Currency (₦450,000.00) */}
                     <p className="text-base sm:text-lg font-black text-gray-900 mt-1">
                       {activeCurrency}
                       {Number(order.amount).toLocaleString(undefined, {
