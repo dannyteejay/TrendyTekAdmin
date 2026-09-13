@@ -4,135 +4,180 @@ import axios from "axios";
 import { backendUrl } from "../App";
 import { toast } from "react-toastify";
 
-const CURRENCIES = [
-  { symbol: "$", code: "USD", name: "US Dollar ($)" },
-  { symbol: "€", code: "EUR", name: "Euro (€)" },
-  { symbol: "£", code: "GBP", name: "British Pound (£)" },
-  { symbol: "₦", code: "NGN", name: "Nigerian Naira (₦)" },
-  { symbol: "₹", code: "INR", name: "Indian Rupee (₹)" },
-  { symbol: "C$", code: "CAD", name: "Canadian Dollar (C$)" },
-  { symbol: "A$", code: "AUD", name: "Australian Dollar (A$)" },
-  { symbol: "GH₵", code: "GHS", name: "Ghanaian Cedi (GH₵)" },
-  { symbol: "KSh", code: "KES", name: "Kenyan Shilling (KSh)" },
-  { symbol: "R", code: "ZAR", name: "South African Rand (R)" },
+// List of popular currencies for one-click selection
+export const CURRENCY_OPTIONS = [
+  { code: "NGN", symbol: "₦", label: "🇳🇬 Naira (₦)" },
+  { code: "USD", symbol: "$", label: "🇺🇸 Dollar ($)" },
+  { code: "EUR", symbol: "€", label: "🇪🇺 Euro (€)" },
+  { code: "GBP", symbol: "£", label: "🇬🇧 Pound (£)" },
+  { code: "INR", symbol: "₹", label: "🇮🇳 Rupee (₹)" },
+  { code: "GHS", symbol: "GH₵", label: "🇬🇭 Cedi (GH₵)" },
+  { code: "KES", symbol: "KSh", label: "🇰🇪 Shilling (KSh)" },
+  { code: "ZAR", symbol: "R", label: "🇿🇦 Rand (R)" },
+  { code: "CAD", symbol: "CA$", label: "🇨🇦 CAD (CA$)" },
+  { code: "AUD", symbol: "AU$", label: "🇦🇺 AUD (AU$)" },
 ];
 
 const Navbar = ({ setToken, token, currency, setCurrency }) => {
-  const [logo, setLogo] = useState("");
-  const adminToken =
-    token ||
-    localStorage.getItem("adminToken") ||
-    localStorage.getItem("token") ||
-    "";
+  const [selectedCurrency, setSelectedCurrency] = useState(
+    currency || localStorage.getItem("adminCurrency") || "$"
+  );
+  const [isCustom, setIsCustom] = useState(false);
+  const [customSymbol, setCustomSymbol] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // Fetch store logo & currency on load
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const response = await axios.get(backendUrl + "/api/settings/get");
-        if (response.data && response.data.success && response.data.settings) {
-          if (response.data.settings.logo) {
-            setLogo(response.data.settings.logo);
-          }
-          if (
-            response.data.settings.currency &&
-            setCurrency &&
-            typeof setCurrency === "function"
-          ) {
-            setCurrency(response.data.settings.currency);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load settings from backend:", error);
-      }
-    };
-    loadSettings();
-  }, [backendUrl, setCurrency]);
-
-  const handleCurrencyChange = async (e) => {
-    const newCurrency = e.target.value;
-    if (setCurrency) setCurrency(newCurrency);
-
+  // Fetch active store currency from backend on load
+  const fetchCurrency = async () => {
     try {
-      const response = await axios.post(
-        backendUrl + "/api/settings/currency",
-        { currency: newCurrency },
-        { headers: { token: adminToken } }
-      );
+      const response = await axios.get(backendUrl + "/api/settings/get");
+      if (response.data && response.data.success) {
+        const activeCurr =
+          response.data.settings?.currency || response.data.currency || "$";
+        setSelectedCurrency(activeCurr);
+        localStorage.setItem("adminCurrency", activeCurr);
+        if (setCurrency && typeof setCurrency === "function") {
+          setCurrency(activeCurr);
+        }
 
-      if (response.data.success) {
-        toast.success(`Store currency switched to ${newCurrency}`);
-      } else {
-        toast.error(response.data.message || "Failed to update currency");
+        const exists = CURRENCY_OPTIONS.some((c) => c.symbol === activeCurr);
+        if (!exists) {
+          setIsCustom(true);
+          setCustomSymbol(activeCurr);
+        }
       }
     } catch (error) {
-      console.error(error);
-      if (error.response?.status === 404) {
-        toast.error(
-          "Backend not restarted! Please restart your backend terminal."
-        );
-      } else {
-        toast.error(
-          error.response?.data?.message || "Failed to update currency in database"
-        );
-      }
+      console.error("Failed to load currency setting:", error);
     }
   };
 
-  // ✅ 1. Proper Clean Logout handler (clears both adminToken and token)
-  const handleLogout = () => {
-    setToken("");
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("token");
-    toast.info("Logged out from Admin Dashboard");
+  useEffect(() => {
+    fetchCurrency();
+  }, []);
+
+  // Update currency on the backend
+  const updateStoreCurrency = async (newSymbol, newCode = "") => {
+    if (!newSymbol) return;
+
+    const adminToken =
+      token ||
+      localStorage.getItem("adminToken") ||
+      localStorage.getItem("token") ||
+      "";
+
+    if (!adminToken) {
+      toast.error("Admin not logged in. Please log out and log in again.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await axios.post(
+        backendUrl + "/api/settings/currency",
+        { currency: newSymbol, currencyName: newCode },
+        { headers: { token: adminToken } }
+      );
+
+      if (response.data && response.data.success) {
+        setSelectedCurrency(newSymbol);
+        localStorage.setItem("adminCurrency", newSymbol);
+        if (setCurrency && typeof setCurrency === "function") {
+          setCurrency(newSymbol);
+        }
+        toast.success(`Currency changed to ${newSymbol}`);
+      } else {
+        toast.error(response.data?.message || "Failed to update currency");
+      }
+    } catch (error) {
+      console.error("Currency update error:", error);
+      if (error.response?.status === 404) {
+        toast.error(
+          "Backend not restarted! Please restart your backend server in terminal."
+        );
+      } else if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error(error.message || "Error updating currency");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDropdownChange = (e) => {
+    const val = e.target.value;
+    if (val === "CUSTOM") {
+      setIsCustom(true);
+    } else {
+      setIsCustom(false);
+      const option = CURRENCY_OPTIONS.find((c) => c.symbol === val);
+      updateStoreCurrency(val, option ? option.code : "");
+    }
+  };
+
+  const handleCustomSubmit = (e) => {
+    e.preventDefault();
+    if (customSymbol.trim()) {
+      updateStoreCurrency(customSymbol.trim(), "CUSTOM");
+    }
   };
 
   return (
-    <div className="flex items-center py-2.5 px-[4%] justify-between bg-white border-b border-gray-200">
+    <div className="flex items-center justify-between px-[4%] py-2 border-b bg-white">
       {/* Brand Logo */}
-<div className="flex items-center gap-2.5">
-  {logo ? (
-    <img
-      className="object-contain h-9 sm:h-11 md:h-12 w-auto max-w-[180px] sm:max-w-[240px] md:max-w-[280px]"
-      src={logo}
-      alt="Admin Logo"
-    />
-  ) : (
-    <div className="flex items-center gap-1 select-none py-1">
-      <span className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 uppercase font-sans">
-        TRENDY<span className="text-blue-600">TEK</span>
-      </span>
-    </div>
-  )}
-  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-black text-white rounded">
-    Admin
-  </span>
-</div>
+      <img className="w-[max(10%,80px)]" src={assets.logo} alt="Trendify Logo" />
 
-      {/* Right Controls */}
-      <div className="flex items-center gap-3">
-        {/* Currency Selector */}
-        <div className="flex items-center gap-1.5 bg-gray-100 border border-gray-300 rounded-lg px-2.5 py-1.5">
-          <span className="text-xs font-semibold text-gray-500">
+      {/* Right side: Currency Selector + Logout */}
+      <div className="flex items-center gap-2 sm:gap-4">
+        {/* Currency Dropdown */}
+        <div className="flex items-center gap-1.5 bg-gray-100 border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm">
+          <span className="hidden font-medium text-gray-600 sm:inline">
             Store Currency:
           </span>
           <select
-            value={currency || "$"}
-            onChange={handleCurrencyChange}
-            className="text-xs font-bold text-gray-800 bg-transparent outline-none cursor-pointer"
+            value={
+              CURRENCY_OPTIONS.some((c) => c.symbol === selectedCurrency)
+                ? selectedCurrency
+                : "CUSTOM"
+            }
+            onChange={handleDropdownChange}
+            disabled={loading}
+            className="font-semibold text-gray-800 bg-transparent outline-none cursor-pointer"
           >
-            {CURRENCIES.map((c) => (
-              <option key={c.symbol} value={c.symbol}>
-                {c.symbol} - {c.code}
+            {CURRENCY_OPTIONS.map((c) => (
+              <option key={c.code} value={c.symbol}>
+                {c.label}
               </option>
             ))}
+            <option value="CUSTOM">✏️ Custom Symbol...</option>
           </select>
         </div>
 
-        {/* ✅ 2. Clean Logout Button */}
+        {/* Custom Symbol Input Popup (only if Custom is chosen) */}
+        {isCustom && (
+          <form onSubmit={handleCustomSubmit} className="flex items-center gap-1">
+            <input
+              type="text"
+              value={customSymbol}
+              onChange={(e) => setCustomSymbol(e.target.value)}
+              placeholder="e.g. ₦ or AED"
+              maxLength={6}
+              className="w-16 px-2 py-1 text-xs border border-gray-400 rounded outline-none sm:w-20"
+              required
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-2.5 py-1 text-xs text-white bg-black rounded hover:bg-gray-800"
+            >
+              Set
+            </button>
+          </form>
+        )}
+
+        {/* Logout Button */}
         <button
-          onClick={handleLogout}
-          className="px-5 py-2 text-xs font-medium text-white transition-all bg-gray-700 rounded-full sm:px-7 sm:py-2 sm:text-sm hover:bg-black cursor-pointer shadow-xs"
+          onClick={() => setToken("")}
+          className="px-4 py-2 text-xs text-white bg-gray-600 rounded-full sm:px-6 sm:text-sm active:bg-gray-700 hover:bg-gray-700 cursor-pointer"
         >
           Logout
         </button>

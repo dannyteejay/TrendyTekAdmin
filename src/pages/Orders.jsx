@@ -14,7 +14,7 @@ const Orders = ({ token, currency: propCurrency }) => {
   const [copiedNoteId, setCopiedNoteId] = useState(null);
   const [reportedCount, setReportedCount] = useState(0);
 
-  // ⚡ Dynamic Currency Sync (Reads selected Naira '₦' symbol from backend & storage)
+  // ⚡ Dynamic Currency State - Auto-synced with Database
   const [activeCurrency, setActiveCurrency] = useState(
     propCurrency ||
       localStorage.getItem("adminCurrency") ||
@@ -22,24 +22,25 @@ const Orders = ({ token, currency: propCurrency }) => {
       "$"
   );
 
+  // Direct backend currency fetch on mount & sync
   useEffect(() => {
+    const fetchActiveCurrency = async () => {
+      try {
+        const response = await axios.get(backendUrl + "/api/settings/get");
+        if (response.data?.success && response.data?.settings?.currency) {
+          const curr = response.data.settings.currency;
+          setActiveCurrency(curr);
+          localStorage.setItem("adminCurrency", curr);
+        }
+      } catch (error) {
+        console.error("Failed to load active currency:", error);
+      }
+    };
+
     if (propCurrency) {
       setActiveCurrency(propCurrency);
     } else {
-      const saved = localStorage.getItem("adminCurrency");
-      if (saved) {
-        setActiveCurrency(saved);
-      } else {
-        axios
-          .get(backendUrl + "/api/settings/get")
-          .then((res) => {
-            if (res.data?.settings?.currency) {
-              setActiveCurrency(res.data.settings.currency);
-              localStorage.setItem("adminCurrency", res.data.settings.currency);
-            }
-          })
-          .catch((err) => console.log(err));
-      }
+      fetchActiveCurrency();
     }
   }, [propCurrency]);
 
