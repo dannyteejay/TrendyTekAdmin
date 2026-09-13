@@ -2,15 +2,10 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { backendUrl } from "../App";
 import { toast } from "react-toastify";
-import ConfirmDialog from "../components/ConfirmDialog";
 
 const Categories = ({ token }) => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
-
-  // Destructive Action Modal State
-  const [categoryToDelete, setCategoryToDelete] = useState(null);
-  const [isDeletingCategory, setIsDeletingCategory] = useState(false);
 
   // Form State
   const [name, setName] = useState("");
@@ -141,22 +136,22 @@ const Categories = ({ token }) => {
     }
   };
 
-  // 5. Perform Category Deletion after Confirmation Dialog
-  const handleConfirmDeleteCategory = async () => {
-    if (!categoryToDelete) return;
+  // 5. Delete Category
+  const handleDeleteCategory = async (cat) => {
+    if (!window.confirm(`Are you sure you want to delete category "${cat.name}"?`)) {
+      return;
+    }
 
     try {
-      setIsDeletingCategory(true);
       const response = await axios.post(
         backendUrl + "/api/category/remove",
-        { id: categoryToDelete._id },
+        { id: cat._id },
         { headers: { token: adminToken } }
       );
 
       if (response.data.success) {
-        toast.info(response.data.message || `Category "${categoryToDelete.name}" deleted.`);
-        if (editId === categoryToDelete._id) resetForm();
-        setCategoryToDelete(null);
+        toast.info(response.data.message || `Category "${cat.name}" deleted.`);
+        if (editId === cat._id) resetForm();
         await fetchCategories();
       } else {
         toast.error(response.data.message);
@@ -164,8 +159,6 @@ const Categories = ({ token }) => {
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.message || error.message);
-    } finally {
-      setIsDeletingCategory(false);
     }
   };
 
@@ -343,9 +336,8 @@ const Categories = ({ token }) => {
                   >
                     ✏️ Edit
                   </button>
-                  {/* Triggers confirmation dialog */}
                   <button
-                    onClick={() => setCategoryToDelete(cat)}
+                    onClick={() => handleDeleteCategory(cat)}
                     className="px-3 py-1 text-xs font-semibold text-white transition-colors bg-red-500 rounded hover:bg-red-600 cursor-pointer active:scale-95"
                   >
                     🗑️ Delete
@@ -356,19 +348,6 @@ const Categories = ({ token }) => {
           </div>
         )}
       </div>
-
-      {/* 🛡️ Destructive Action Confirmation Dialog */}
-      <ConfirmDialog
-        isOpen={Boolean(categoryToDelete)}
-        onClose={() => setCategoryToDelete(null)}
-        onConfirm={handleConfirmDeleteCategory}
-        isLoading={isDeletingCategory}
-        title="Are you sure?"
-        message="This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-        isDestructive={true}
-      />
     </div>
   );
 };
