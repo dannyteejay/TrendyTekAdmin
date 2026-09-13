@@ -18,10 +18,10 @@ import ManageBlog from "./pages/ManageBlog";
 import ManageFaq from "./pages/ManageFaq";
 import Login from "./components/Login";
 import ManageUsers from "./pages/ManageUsers";
-import AuditLogs from "./pages/AuditLogs";
 import Dashboard from "./pages/Dashboard";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import axios from "axios";
 
 export const backendUrl =
   import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
@@ -31,9 +31,11 @@ const App = () => {
   const [token, setToken] = useState(
     localStorage.getItem("adminToken") || ""
   );
-  const [currency, setCurrency] = useState("$");
+  const [currency, setCurrency] = useState(
+    localStorage.getItem("adminCurrency") || "$"
+  );
 
-  // Keep adminToken synced cleanly: remove when logged out, save when logged in
+  // Keep adminToken synced cleanly
   useEffect(() => {
     if (token) {
       localStorage.setItem("adminToken", token);
@@ -42,6 +44,22 @@ const App = () => {
       localStorage.removeItem("token");
     }
   }, [token]);
+
+  // Fetch active store currency from database on startup
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await axios.get(backendUrl + "/api/settings/get");
+        if (response.data?.success && response.data?.settings?.currency) {
+          setCurrency(response.data.settings.currency);
+          localStorage.setItem("adminCurrency", response.data.settings.currency);
+        }
+      } catch (error) {
+        console.error("Failed to load store currency:", error);
+      }
+    };
+    fetchSettings();
+  }, [backendUrl]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -73,14 +91,13 @@ const App = () => {
                 <Route path="/categories" element={<Categories token={token} />} />
                 <Route path="/slides" element={<Slides token={token} />} />
                 <Route path="/logo" element={<ManageLogo token={token} />} />
+                <Route path="/shipping" element={<ManageShipping token={token} currency={currency} />} />
                 <Route path="/bank-details" element={<ManageBank token={token} />} />
                 <Route path="/payments" element={<ManagePayments token={token} />} />
-                <Route path="/shipping" element={<ManageShipping token={token} currency={currency} />} />
                 <Route path="/blog" element={<ManageBlog token={token} />} />
                 <Route path="/faq" element={<ManageFaq token={token} />} />
                 <Route path="/footer" element={<ManageFooter token={token} />} />
                 <Route path="/users" element={<ManageUsers token={token} />} />
-                <Route path="/audit-logs" element={<AuditLogs token={token} />} />
                 <Route path="/about-page" element={<ManageAbout token={token} />} />
                 <Route path="/" element={<Dashboard token={token} currency={currency} />} />
                 <Route path="/dashboard" element={<Dashboard token={token} currency={currency} />} />

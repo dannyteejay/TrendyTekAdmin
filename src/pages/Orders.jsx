@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { backendUrl, currency } from "../App";
+import { backendUrl, currency as defaultCurrency } from "../App";
 import { toast } from "react-toastify";
 import { assets } from "../assets/assets";
 import { Pagination, SearchBar, ConfirmDialog } from "../components/common";
 
-const Orders = ({ token }) => {
+const Orders = ({ token, currency: propCurrency }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
@@ -13,6 +13,35 @@ const Orders = ({ token }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [copiedNoteId, setCopiedNoteId] = useState(null);
   const [reportedCount, setReportedCount] = useState(0);
+
+  // ⚡ Dynamic Currency Sync (Reads selected Naira '₦' symbol from backend & storage)
+  const [activeCurrency, setActiveCurrency] = useState(
+    propCurrency ||
+      localStorage.getItem("adminCurrency") ||
+      defaultCurrency ||
+      "$"
+  );
+
+  useEffect(() => {
+    if (propCurrency) {
+      setActiveCurrency(propCurrency);
+    } else {
+      const saved = localStorage.getItem("adminCurrency");
+      if (saved) {
+        setActiveCurrency(saved);
+      } else {
+        axios
+          .get(backendUrl + "/api/settings/get")
+          .then((res) => {
+            if (res.data?.settings?.currency) {
+              setActiveCurrency(res.data.settings.currency);
+              localStorage.setItem("adminCurrency", res.data.settings.currency);
+            }
+          })
+          .catch((err) => console.log(err));
+      }
+    }
+  }, [propCurrency]);
 
   // Destructive Action Modal State (Cancel Order)
   const [orderToCancel, setOrderToCancel] = useState(null);
@@ -148,7 +177,6 @@ const Orders = ({ token }) => {
     setTimeout(() => setCopiedNoteId(null), 2000);
   };
 
-  // Refetch from server whenever page, filter, or sort changes
   useEffect(() => {
     fetchAllOrders(currentPage);
   }, [token, currentPage, filter, sort]);
@@ -313,8 +341,9 @@ const Orders = ({ token }) => {
                         minute: "2-digit",
                       })}
                     </p>
+                    {/* ₦ Naira Active Currency Rendering */}
                     <p className="text-base sm:text-lg font-black text-gray-900 dark:text-white mt-1">
-                      {currency}
+                      {activeCurrency}
                       {Number(order.amount).toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
