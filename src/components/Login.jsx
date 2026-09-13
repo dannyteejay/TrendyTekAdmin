@@ -12,7 +12,6 @@ const Login = ({ setToken }) => {
   );
   const [loading, setLoading] = useState(false);
 
-  // Fetch active store logo on load from backend
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -28,7 +27,7 @@ const Login = ({ setToken }) => {
           }
         }
       } catch (error) {
-        console.error("Failed to fetch store settings for admin login:", error);
+        console.error("Failed to fetch store settings:", error);
       }
     };
     fetchSettings();
@@ -64,12 +63,11 @@ const Login = ({ setToken }) => {
 
   return (
     <div className="flex items-center justify-center min-h-screen w-full bg-gray-50 px-4">
-      <div className="bg-white shadow-xl rounded-2xl px-8 py-10 max-w-md w-full border border-gray-200 animate-fade-in">
-        {/* Dynamic Brand Logo */}
+      <div className="bg-white shadow-xl rounded-2xl px-8 py-10 max-w-md w-full border border-gray-200">
         <div className="flex flex-col items-center justify-center mb-6 text-center">
           {logo ? (
             <img
-              className="object-contain h-14 sm:h-16 w-auto max-w-[260px] mb-3 transition-all"
+              className="object-contain h-14 sm:h-16 w-auto max-w-[260px] mb-3"
               src={logo}
               alt={storeName || "TrendyTek"}
             />
@@ -88,7 +86,6 @@ const Login = ({ setToken }) => {
           </p>
         </div>
 
-        {/* Login Form */}
         <form onSubmit={onSubmitHandler} className="flex flex-col gap-4">
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">
@@ -97,7 +94,7 @@ const Login = ({ setToken }) => {
             <input
               onChange={(e) => setEmail(e.target.value)}
               value={email}
-              className="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-lg outline-none focus:border-black transition-all"
+              className="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-lg outline-none focus:border-black"
               type="email"
               placeholder="your@email.com"
               required
@@ -111,7 +108,7 @@ const Login = ({ setToken }) => {
             <input
               onChange={(e) => setPassword(e.target.value)}
               value={password}
-              className="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-lg outline-none focus:border-black transition-all"
+              className="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-lg outline-none focus:border-black"
               type="password"
               placeholder="Enter your password"
               required
@@ -120,7 +117,7 @@ const Login = ({ setToken }) => {
 
           <button
             disabled={loading}
-            className={`w-full py-3 mt-2 text-xs sm:text-sm font-bold text-white uppercase tracking-wider bg-black rounded-lg hover:bg-gray-800 active:scale-95 shadow-md transition-all cursor-pointer ${
+            className={`w-full py-3 mt-2 text-xs sm:text-sm font-bold text-white uppercase tracking-wider bg-black rounded-lg hover:bg-gray-800 active:scale-95 shadow-md cursor-pointer ${
               loading ? "opacity-60 cursor-not-allowed" : ""
             }`}
             type="submit"
