@@ -47,6 +47,7 @@ const Login = ({ setToken }) => {
       if (response.data.success) {
         setToken(response.data.token);
         localStorage.setItem("adminToken", response.data.token);
+        localStorage.setItem("token", response.data.token);
         toast.success("Welcome to Admin Dashboard!");
       } else {
         toast.error(response.data.message || "Invalid email or password");
@@ -64,7 +65,7 @@ const Login = ({ setToken }) => {
   return (
     <div className="flex items-center justify-center min-h-screen w-full bg-gray-50 px-4">
       <div className="bg-white shadow-xl rounded-2xl px-8 py-10 max-w-md w-full border border-gray-200 animate-fade-in">
-        {/* Dynamic Brand Logo (Shows Custom Logo or TrendyTek Brand) */}
+        {/* Dynamic Brand Logo */}
         <div className="flex flex-col items-center justify-center mb-6 text-center">
           {logo ? (
             <img
