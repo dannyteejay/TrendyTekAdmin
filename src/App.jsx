@@ -32,7 +32,7 @@ const App = () => {
     localStorage.getItem("adminToken") || ""
   );
   const [currency, setCurrency] = useState(
-    localStorage.getItem("adminCurrency") || "$"
+    localStorage.getItem("adminCurrency") || "₦"
   );
 
   // Keep adminToken synced cleanly
@@ -51,11 +51,19 @@ const App = () => {
       try {
         const response = await axios.get(backendUrl + "/api/settings/get");
         if (response.data?.success && response.data?.settings?.currency) {
-          setCurrency(response.data.settings.currency);
-          localStorage.setItem("adminCurrency", response.data.settings.currency);
+          const fetchedCurr = response.data.settings.currency;
+          // If fetched currency is valid and not legacy "$", use it; otherwise default to "₦"
+          const finalCurr = (fetchedCurr && fetchedCurr !== "$") ? fetchedCurr : "₦";
+          setCurrency(finalCurr);
+          localStorage.setItem("adminCurrency", finalCurr);
+        } else {
+          setCurrency("₦");
+          localStorage.setItem("adminCurrency", "₦");
         }
       } catch (error) {
         console.error("Failed to load store currency:", error);
+        setCurrency("₦");
+        localStorage.setItem("adminCurrency", "₦");
       }
     };
     fetchSettings();
