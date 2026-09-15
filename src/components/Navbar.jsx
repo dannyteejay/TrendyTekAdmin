@@ -1,183 +1,144 @@
 import React, { useEffect, useState } from "react";
-import { assets } from "../assets/assets";
 import axios from "axios";
 import { backendUrl } from "../App";
 import { toast } from "react-toastify";
 
-// List of popular currencies for one-click selection
-export const CURRENCY_OPTIONS = [
-  { code: "NGN", symbol: "₦", label: "🇳🇬 Naira (₦)" },
-  { code: "USD", symbol: "$", label: "🇺🇸 Dollar ($)" },
-  { code: "EUR", symbol: "€", label: "🇪🇺 Euro (€)" },
-  { code: "GBP", symbol: "£", label: "🇬🇧 Pound (£)" },
-  { code: "INR", symbol: "₹", label: "🇮🇳 Rupee (₹)" },
-  { code: "GHS", symbol: "GH₵", label: "🇬🇭 Cedi (GH₵)" },
-  { code: "KES", symbol: "KSh", label: "🇰🇪 Shilling (KSh)" },
-  { code: "ZAR", symbol: "R", label: "🇿🇦 Rand (R)" },
-  { code: "CAD", symbol: "CA$", label: "🇨🇦 CAD (CA$)" },
-  { code: "AUD", symbol: "AU$", label: "🇦🇺 AUD (AU$)" },
+const CURRENCIES = [
+  { symbol: "₦", code: "NGN", name: "Nigerian Naira (₦)" },
+  { symbol: "$", code: "USD", name: "US Dollar ($)" },
+  { symbol: "€", code: "EUR", name: "Euro (€)" },
+  { symbol: "£", code: "GBP", name: "British Pound (£)" },
+  { symbol: "₹", code: "INR", name: "Indian Rupee (₹)" },
+  { symbol: "C$", code: "CAD", name: "Canadian Dollar (C$)" },
+  { symbol: "A$", code: "AUD", name: "Australian Dollar (A$)" },
+  { symbol: "GH₵", code: "GHS", name: "Ghanaian Cedi (GH₵)" },
+  { symbol: "KSh", code: "KES", name: "Kenyan Shilling (KSh)" },
+  { symbol: "R", code: "ZAR", name: "South African Rand (R)" },
 ];
 
 const Navbar = ({ setToken, token, currency, setCurrency }) => {
-  const [selectedCurrency, setSelectedCurrency] = useState(
-    currency || localStorage.getItem("adminCurrency") || "$"
+  // Directly loads your active Cloudinary logo URL
+  const [logo, setLogo] = useState(
+    localStorage.getItem("adminStoreLogo") ||
+      "https://res.cloudinary.com/mnlkie5f/image/upload/v1789507436/bpcelqaydv0js1qopikv.png"
   );
-  const [isCustom, setIsCustom] = useState(false);
-  const [customSymbol, setCustomSymbol] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [storeName, setStoreName] = useState(
+    localStorage.getItem("storeName") || "TRENDYTEK ENTERPRISES LIMITED"
+  );
 
-  // Fetch active store currency from backend on load
-  const fetchCurrency = async () => {
-    try {
-      const response = await axios.get(backendUrl + "/api/settings/get");
-      if (response.data && response.data.success) {
-        const activeCurr =
-          response.data.settings?.currency || response.data.currency || "$";
-        setSelectedCurrency(activeCurr);
-        localStorage.setItem("adminCurrency", activeCurr);
-        if (setCurrency && typeof setCurrency === "function") {
-          setCurrency(activeCurr);
-        }
+  const adminToken =
+    token ||
+    localStorage.getItem("adminToken") ||
+    localStorage.getItem("token") ||
+    "";
 
-        const exists = CURRENCY_OPTIONS.some((c) => c.symbol === activeCurr);
-        if (!exists) {
-          setIsCustom(true);
-          setCustomSymbol(activeCurr);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load currency setting:", error);
-    }
-  };
-
+  // Fetch active store logo & currency from database on startup
   useEffect(() => {
-    fetchCurrency();
-  }, []);
+    const loadSettings = async () => {
+      try {
+        const response = await axios.get(backendUrl + "/api/settings/get");
+        if (response.data && response.data.success && response.data.settings) {
+          if (response.data.settings.logo) {
+            setLogo(response.data.settings.logo);
+            localStorage.setItem("adminStoreLogo", response.data.settings.logo);
+          }
+          if (response.data.settings.storeName) {
+            setStoreName(response.data.settings.storeName);
+            localStorage.setItem("storeName", response.data.settings.storeName);
+          }
+          if (
+            response.data.settings.currency &&
+            setCurrency &&
+            typeof setCurrency === "function"
+          ) {
+            setCurrency(response.data.settings.currency);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load settings from backend:", error);
+      }
+    };
+    loadSettings();
+  }, [backendUrl, setCurrency]);
 
-  // Update currency on the backend
-  const updateStoreCurrency = async (newSymbol, newCode = "") => {
-    if (!newSymbol) return;
+  const handleCurrencyChange = async (e) => {
+    const newCurrency = e.target.value;
+    if (setCurrency) setCurrency(newCurrency);
 
-    const adminToken =
-      token ||
-      localStorage.getItem("adminToken") ||
-      localStorage.getItem("token") ||
-      "";
-
-    if (!adminToken) {
-      toast.error("Admin not logged in. Please log out and log in again.");
-      return;
-    }
-
-    setLoading(true);
     try {
       const response = await axios.post(
         backendUrl + "/api/settings/currency",
-        { currency: newSymbol, currencyName: newCode },
+        { currency: newCurrency },
         { headers: { token: adminToken } }
       );
 
-      if (response.data && response.data.success) {
-        setSelectedCurrency(newSymbol);
-        localStorage.setItem("adminCurrency", newSymbol);
-        if (setCurrency && typeof setCurrency === "function") {
-          setCurrency(newSymbol);
-        }
-        toast.success(`Currency changed to ${newSymbol}`);
+      if (response.data.success) {
+        toast.success(`Store currency switched to ${newCurrency}`);
       } else {
-        toast.error(response.data?.message || "Failed to update currency");
+        toast.error(response.data.message || "Failed to update currency");
       }
     } catch (error) {
-      console.error("Currency update error:", error);
-      if (error.response?.status === 404) {
-        toast.error(
-          "Backend not restarted! Please restart your backend server in terminal."
-        );
-      } else if (error.response?.data?.message) {
-        toast.error(error.response.data.message);
-      } else {
-        toast.error(error.message || "Error updating currency");
-      }
-    } finally {
-      setLoading(false);
+      console.error(error);
+      toast.error(
+        error.response?.data?.message || "Failed to update currency in database"
+      );
     }
   };
 
-  const handleDropdownChange = (e) => {
-    const val = e.target.value;
-    if (val === "CUSTOM") {
-      setIsCustom(true);
-    } else {
-      setIsCustom(false);
-      const option = CURRENCY_OPTIONS.find((c) => c.symbol === val);
-      updateStoreCurrency(val, option ? option.code : "");
-    }
-  };
-
-  const handleCustomSubmit = (e) => {
-    e.preventDefault();
-    if (customSymbol.trim()) {
-      updateStoreCurrency(customSymbol.trim(), "CUSTOM");
-    }
+  const handleLogout = () => {
+    setToken("");
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("token");
+    localStorage.removeItem("adminStoreLogo");
+    toast.info("Logged out from Admin Dashboard");
   };
 
   return (
-    <div className="flex items-center justify-between px-[4%] py-2 border-b bg-white">
-      {/* Brand Logo */}
-      <img className="w-[max(10%,80px)]" src={assets.logo} alt="Trendify Logo" />
+    <div className="flex items-center py-2.5 px-[4%] justify-between bg-white border-b border-gray-200">
+      {/* Dynamic Brand Logo */}
+      <div className="flex items-center gap-2.5">
+        {logo ? (
+          <img
+            className="object-contain h-10 sm:h-12 md:h-14 w-auto max-w-[200px] sm:max-w-[260px] md:max-w-[320px]"
+            src={logo}
+            alt={storeName || "TrendyTek Logo"}
+          />
+        ) : (
+          <div className="flex items-center gap-1 select-none py-1">
+            <span className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 uppercase font-sans">
+              TRENDY<span className="text-blue-600">TEK</span>
+            </span>
+          </div>
+        )}
+        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-black text-white rounded">
+          Admin
+        </span>
+      </div>
 
-      {/* Right side: Currency Selector + Logout */}
-      <div className="flex items-center gap-2 sm:gap-4">
-        {/* Currency Dropdown */}
-        <div className="flex items-center gap-1.5 bg-gray-100 border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm">
-          <span className="hidden font-medium text-gray-600 sm:inline">
+      {/* Right Controls: Currency & Logout */}
+      <div className="flex items-center gap-3">
+        {/* Currency Selector */}
+        <div className="flex items-center gap-1.5 bg-gray-100 border border-gray-300 rounded-lg px-2.5 py-1.5">
+          <span className="text-xs font-semibold text-gray-500">
             Store Currency:
           </span>
           <select
-            value={
-              CURRENCY_OPTIONS.some((c) => c.symbol === selectedCurrency)
-                ? selectedCurrency
-                : "CUSTOM"
-            }
-            onChange={handleDropdownChange}
-            disabled={loading}
-            className="font-semibold text-gray-800 bg-transparent outline-none cursor-pointer"
+            value={currency || "₦"}
+            onChange={handleCurrencyChange}
+            className="text-xs font-bold text-gray-800 bg-transparent outline-none cursor-pointer"
           >
-            {CURRENCY_OPTIONS.map((c) => (
-              <option key={c.code} value={c.symbol}>
-                {c.label}
+            {CURRENCIES.map((c) => (
+              <option key={c.symbol} value={c.symbol}>
+                {c.symbol} - {c.code}
               </option>
             ))}
-            <option value="CUSTOM">✏️ Custom Symbol...</option>
           </select>
         </div>
 
-        {/* Custom Symbol Input Popup (only if Custom is chosen) */}
-        {isCustom && (
-          <form onSubmit={handleCustomSubmit} className="flex items-center gap-1">
-            <input
-              type="text"
-              value={customSymbol}
-              onChange={(e) => setCustomSymbol(e.target.value)}
-              placeholder="e.g. ₦ or AED"
-              maxLength={6}
-              className="w-16 px-2 py-1 text-xs border border-gray-400 rounded outline-none sm:w-20"
-              required
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-2.5 py-1 text-xs text-white bg-black rounded hover:bg-gray-800"
-            >
-              Set
-            </button>
-          </form>
-        )}
-
         {/* Logout Button */}
         <button
-          onClick={() => setToken("")}
-          className="px-4 py-2 text-xs text-white bg-gray-600 rounded-full sm:px-6 sm:text-sm active:bg-gray-700 hover:bg-gray-700 cursor-pointer"
+          onClick={handleLogout}
+          className="px-5 py-2 text-xs font-medium text-white transition-all bg-gray-700 rounded-full sm:px-7 sm:py-2 sm:text-sm hover:bg-black cursor-pointer shadow-xs"
         >
           Logout
         </button>
