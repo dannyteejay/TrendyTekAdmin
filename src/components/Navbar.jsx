@@ -17,7 +17,6 @@ const CURRENCIES = [
 ];
 
 const Navbar = ({ setToken, token, currency, setCurrency }) => {
-  // Directly loads your active Cloudinary logo URL
   const [logo, setLogo] = useState(
     localStorage.getItem("adminStoreLogo") ||
       "https://res.cloudinary.com/mnlkie5f/image/upload/v1789507436/bpcelqaydv0js1qopikv.png"
@@ -25,6 +24,7 @@ const Navbar = ({ setToken, token, currency, setCurrency }) => {
   const [storeName, setStoreName] = useState(
     localStorage.getItem("storeName") || "TRENDYTEK ENTERPRISES LIMITED"
   );
+  const [selectedCurrency, setSelectedCurrency] = useState(currency || "₦");
 
   const adminToken =
     token ||
@@ -32,7 +32,7 @@ const Navbar = ({ setToken, token, currency, setCurrency }) => {
     localStorage.getItem("token") ||
     "";
 
-  // Fetch active store logo & currency from database on startup
+  // Fetch active store logo & currency on load
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -46,12 +46,11 @@ const Navbar = ({ setToken, token, currency, setCurrency }) => {
             setStoreName(response.data.settings.storeName);
             localStorage.setItem("storeName", response.data.settings.storeName);
           }
-          if (
-            response.data.settings.currency &&
-            setCurrency &&
-            typeof setCurrency === "function"
-          ) {
-            setCurrency(response.data.settings.currency);
+          if (response.data.settings.currency) {
+            setSelectedCurrency(response.data.settings.currency);
+            if (setCurrency && typeof setCurrency === "function") {
+              setCurrency(response.data.settings.currency);
+            }
           }
         }
       } catch (error) {
@@ -63,19 +62,28 @@ const Navbar = ({ setToken, token, currency, setCurrency }) => {
 
   const handleCurrencyChange = async (e) => {
     const newCurrency = e.target.value;
-    if (setCurrency) setCurrency(newCurrency);
+    setSelectedCurrency(newCurrency);
+    if (setCurrency && typeof setCurrency === "function") {
+      setCurrency(newCurrency);
+    }
+    localStorage.setItem("adminCurrency", newCurrency);
 
     try {
       const response = await axios.post(
         backendUrl + "/api/settings/currency",
         { currency: newCurrency },
-        { headers: { token: adminToken } }
+        {
+          headers: {
+            token: adminToken,
+            Authorization: `Bearer ${adminToken}`,
+          },
+        }
       );
 
-      if (response.data.success) {
+      if (response.data?.success) {
         toast.success(`Store currency switched to ${newCurrency}`);
       } else {
-        toast.error(response.data.message || "Failed to update currency");
+        toast.error(response.data?.message || "Failed to update currency");
       }
     } catch (error) {
       console.error(error);
@@ -123,7 +131,7 @@ const Navbar = ({ setToken, token, currency, setCurrency }) => {
             Store Currency:
           </span>
           <select
-            value={currency || "₦"}
+            value={selectedCurrency || currency || "₦"}
             onChange={handleCurrencyChange}
             className="text-xs font-bold text-gray-800 bg-transparent outline-none cursor-pointer"
           >

@@ -24,7 +24,8 @@ import "react-toastify/dist/ReactToastify.css";
 import axios from "axios";
 
 export const backendUrl =
-  import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+  import.meta.env.VITE_BACKEND_URL ||
+  "https://fullstackbackend-wwiu.onrender.com";
 export const currency = "₦";
 
 const App = () => {
@@ -52,10 +53,8 @@ const App = () => {
         const response = await axios.get(backendUrl + "/api/settings/get");
         if (response.data?.success && response.data?.settings?.currency) {
           const fetchedCurr = response.data.settings.currency;
-          // If fetched currency is valid and not legacy "$", use it; otherwise default to "₦"
-          const finalCurr = (fetchedCurr && fetchedCurr !== "$") ? fetchedCurr : "₦";
-          setCurrency(finalCurr);
-          localStorage.setItem("adminCurrency", finalCurr);
+          setCurrency(fetchedCurr);
+          localStorage.setItem("adminCurrency", fetchedCurr);
         } else {
           setCurrency("₦");
           localStorage.setItem("adminCurrency", "₦");
